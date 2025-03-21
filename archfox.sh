@@ -57,19 +57,19 @@ setup_aur_helper() {
 
   # Check if yay is already installed
   if ! command -v yay &> /dev/null; then
-    # Install git if not already installed
-    install_package "git base-devel"
+    # Install git and base-devel if not already installed
+    pacman -S --needed --noconfirm git base-devel
 
-    # Create temp directory and clone yay
-    mkdir -p /tmp/yay-install
-    cd /tmp/yay-install
-    git clone https://aur.archlinux.org/yay.git
-    cd yay
-    makepkg -si
+    # Switch to the ACTUAL_USER and install yay
+    su - $ACTUAL_USER << EOF
+      git clone https://aur.archlinux.org/yay.git /tmp/yay-install
+      cd /tmp/yay-install
+      makepkg -si --noconfirm
+EOF
 
     # Clean up
-    cd /
     rm -rf /tmp/yay-install
+
     log_message "yay installed successfully"
   else
     log_message "yay is already installed"
@@ -114,6 +114,9 @@ snapshot_function() {
 
   # Enable and start snapper services
   systemctl enable --now snapper-timeline.timer snapper-cleanup.timer
+
+  # delete pre-existing .snapshot folder in root
+  rm -rf /.snapshots/*
 
   # Create configs if they don't exist
   snapper -c root create-config /
@@ -184,7 +187,7 @@ setup_cifs_mount() {
   FSTAB_ENTRY2="$SHARE2 $MOUNT_POINT2 cifs credentials=$CREDENTIALS_FILE,vers=3.0,uid=gitfox,gid=gitfox,nofail 0 0"
 
   # Install cifs-utils
-  install_package "cifs-utils"
+  install_package "smbclient cifs-utils"
 
   # Prompt for username and password securely
   log_message "Setting up CIFS credentials..."
@@ -223,7 +226,10 @@ setup_multimedia() {
   log_message "Setting up multimedia support..."
 
   # Install multimedia codecs for Arch
-  install_package "a52dec faac faad2 flac jasper lame libdca libdv libmad libmpeg2 libtheora libvorbis libvpx libxv wavpack x264 x265 xvidcore gstreamer gstreamer-plugins-base gstreamer-plugins-good gstreamer-plugins-bad gstreamer-plugins-ugly"
+  install_package "ffmpeg yt-dlp vlc mpv mediainfo easyeffects flac lame libmpeg2 wavpack x264 x265 gstreamer gst-libav gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly"
+
+  # Install Plex applications!
+  flatpak install tv.plex.PlexDesktop com.plexamp.Plexamp
 
   # Hardware acceleration
   install_package "intel-media-driver libva-intel-driver" # Intel
@@ -237,7 +243,7 @@ setup_virtualization() {
   log_message "Setting up virtualization..."
 
   # Install virtualization packages
-  install_package "qemu libvirt virt-manager ebtables dnsmasq bridge-utils"
+  install_package "qemu-full samba libvirt virt-manager dnsmasq"
 
   # Enable and start libvirtd service
   systemctl enable libvirtd
@@ -259,17 +265,22 @@ install_essentials() {
   log_message "Installing essential applications..."
 
   # Install packages
-  install_package "btop htop rsync inxi fzf ncdu tmux git wget curl kitty bat make unzip gcc go tldr"
+  install_package "amdgpu_top bluez-utils duf fastfetch flatpak btop htop rsync inxi fzf ncdu tmux git wget curl kitty bat make unzip unrar vim wl-clipboard gcc go tldr zsh"
 
-  # Install packages that might be in AUR
-  su - $ACTUAL_USER -c "yay -S --noconfirm fastfetch duf"
-
+  # Install Resources
+  flatpak install net.nokyan.Resources im.riot.Riot org.telegram.desktop com.rustdesk.RustDesk com.github.unrud.VideoDownloader com.github.tchx84.Flatseal -y
   # Install rclone
-  install_package "rclone"
+  log_message "Installing rclone..."
+  if ! (sudo -v && curl https://rclone.org/install.sh | sudo bash); then
+      log_message "ERROR: Failed to install rclone"
+  fi
 
   # Install Rust
-  install_package "rustup"
-  su - $ACTUAL_USER -c "rustup default stable"
+  log_message "Installing rust..."
+  if ! (sudo -v && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -sSf | sh); then
+      log_message "Error: Failed to install rust!"
+  fi
+  log_message "Essential applications installed successfully"
 
   log_message "Essential applications installed successfully"
 }
@@ -310,10 +321,10 @@ install_browsers() {
   log_message "Installing browsers and communication apps..."
 
   # Install Brave browser (via AUR)
-  su - $ACTUAL_USER -c "yay -S --noconfirm brave-bin"
+  su - $ACTUAL_USER -c "yay -S brave-bin"
 
   # Install Flatpak browsers
-  flatpak install -y flathub io.gitlab.librewolf-community app.zen_browser.zen im.riot.Riot org.telegram.desktop
+  flatpak install -y flathub io.gitlab.librewolf-community
 
   log_message "Browser applications installed successfully"
 }
@@ -328,31 +339,9 @@ install_office() {
   log_message "Installing office applications..."[9]
 
   # Install Office apps from Flathub
-  flatpak install -y flathub org.onlyoffice.desktopeditors md.obsidian.Obsidian net.ankiweb.Anki
-
+  flatpak install -y org.gimp.GIMP flathub org.onlyoffice.desktopeditors md.obsidian.Obsidian net.ankiweb.Anki
+  install_package "kate"
   log_message "Office applications installed successfully"
-}
-
-# Install coding applications function
-install_coding() {
-  if [ "$INSTALL_CODING" != "true" ]; then
-    log_message "Skipping coding applications"
-    return
-  fi
-
-  log_message "Installing development tools..."
-
-  # Install Docker
-  install_package "docker docker-compose"
-
-  # Enable Docker service
-  systemctl enable --now docker
-
-  # Add user to Docker group
-  groupadd docker 2>/dev/null || true
-  usermod -aG docker $ACTUAL_USER
-
-  log_message "Development tools installed successfully"
 }
 
 # Install gaming applications function
@@ -364,17 +353,17 @@ install_gaming() {
 
   log_message "Installing gaming applications..."
 
+  # Install rocm packages
+  install_package "rocm-core rocm-hip-libraries rocm-hip-runtime rocm-hip-sdk rocm-ml-libraries rocm-ml-sdk rocm-opencl-runtime rocm-opencl-sdk"
+
   # Install Steam
   install_package "steam"
 
   # Install mangohud
   install_package "mangohud"
 
-  # Install goverlay from AUR
-  su - $ACTUAL_USER -c "yay -S --noconfirm goverlay"
-
   # Install gaming apps from Flathub
-  flatpak install -y flathub net.lutris.Lutris com.heroicgameslauncher.hgl
+  flatpak install -y flathub net.lutris.Lutris com.heroicgameslauncher.hgl org.yuzu_emu.yuzu
 
   log_message "Gaming applications installed successfully"
 }
@@ -404,17 +393,9 @@ generate_summary() {
   # Display system info
   if command -v fastfetch &> /dev/null; then
     fastfetch
-  elif command -v neofetch &> /dev/null; then
-    neofetch
   fi
 }
 
-# Main script execution
-log_message "Starting Arch Linux setup script..."
-
-# Execute functions in sequence
-root_check
-setup_aur_helper
 setup_flatpak() {
   log_message "Setting up Flatpak..."
   install_package "flatpak"
@@ -423,6 +404,12 @@ setup_flatpak() {
   log_message "Flatpak setup completed"
 }
 
+# Main script execution
+log_message "Starting Arch Linux setup script..."
+
+# Execute functions in sequence
+root_check
+setup_aur_helper
 setup_flatpak
 snapshot_function
 system_upgrade
@@ -434,7 +421,6 @@ setup_virtualization
 install_essentials
 install_browsers
 install_office
-install_coding
 install_gaming
 cleanup
 generate_summary
