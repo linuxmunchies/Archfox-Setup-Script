@@ -44,7 +44,7 @@ confirm_action() {
 install_package() {
   local package=$1
   log_message "Installing $package..."
-  if pacman -S --noconfirm $package; then
+  if pacman -S --needed --noconfirm $package; then
     log_message "$package installed successfully"
   else
     log_message "ERROR: Failed to install $package"
@@ -76,33 +76,12 @@ EOF
   fi
 }
 
-# Function to check if a subvolume exists
-check_subvol() {
-  sudo btrfs subvolume list / | grep -q -E " path ($1|@$1|@var_$1|var_$1)$"
-}
-
+# Function to take a Snapshot
 snapshot_function() {
   # Check if filesystem is btrfs
   if [ "$(findmnt -no FSTYPE /)" != "btrfs" ]; then
     log_message "Not using BTRFS filesystem, skipping snapshot setup"
     return
-  fi
-
-  # Check critical directories
-  log_is_subvol=$(check_subvol "log" && echo "yes" || echo "no")
-  cache_is_subvol=$(check_subvol "cache" && echo "yes" || echo "no")
-
-  # Warn if not subvolumes
-  if [[ "$log_is_subvol" == "no" || "$cache_is_subvol" == "no" ]]; then
-    echo "WARNING: These directories are not BTRFS subvolumes:"
-    [[ "$log_is_subvol" == "no" ]] && echo "- /var/log"
-    [[ "$cache_is_subvol" == "no" ]] && echo "- /var/cache"
-    echo "This will make snapshots larger and may cause issues during rollbacks."
-    read -p "Continue anyway? (yes/no): " answer
-    if [[ "$answer" != "yes" ]]; then
-      echo "Script terminated."
-      exit 1
-    fi
   fi
 
   # Create snapshots
@@ -114,9 +93,6 @@ snapshot_function() {
 
   # Enable and start snapper services
   systemctl enable --now snapper-timeline.timer snapper-cleanup.timer
-
-  # delete pre-existing .snapshot folder in root
-  rm -rf /.snapshots/*
 
   # Create configs if they don't exist
   snapper -c root create-config /
@@ -142,10 +118,6 @@ system_upgrade() {
 # System configuration function
 configure_system() {
   log_message "Configuring system..."
-
-  # Set hostname
-  log_message "Setting hostname..."
-  hostnamectl set-hostname ArchFox
 
   # Optimize pacman configuration
   log_message "Optimizing pacman configuration..."
@@ -320,11 +292,8 @@ install_browsers() {
 
   log_message "Installing browsers and communication apps..."
 
-  # Install Brave browser (via AUR)
-  su - $ACTUAL_USER -c "yay -S brave-bin"
-
   # Install Flatpak browsers
-  flatpak install -y flathub io.gitlab.librewolf-community
+  flatpak install -y io.gitlab.librewolf-community
 
   log_message "Browser applications installed successfully"
 }
@@ -386,7 +355,6 @@ generate_summary() {
   log_message "Generating setup summary..."
 
   echo "=== Setup Summary ==="
-  echo "Hostname: $(hostname)"
   echo "Setup completed at: $(date)"
   echo "Created with ❤️ for Arch Linux"
 
@@ -403,6 +371,105 @@ setup_flatpak() {
   flatpak update
   log_message "Flatpak setup completed"
 }
+
+change_to_zsh() {
+    # Check if Zsh is installed
+    if ! command -v zsh &> /dev/null; then
+        echo "Zsh is not installed."
+        install_package "zsh"
+    fi
+
+    # Change shell for the specified user
+    echo "Changing shell for user $ACTUAL_USER to Zsh..."
+    sudo chsh -s "$(which zsh)" "$ACTUAL_USER"
+
+    echo "Shell change complete. Please restart your terminal or log out and back in."
+}
+
+configure_zshrc() {
+    local zshrc="$ACTUAL_HOME/.zshrc"
+    local backup="$ACTUAL_HOME/.zshrc.backup.$(date +%Y%m%d%H%M%S)"
+
+    # Check if .zshrc exists and create backup
+    if [[ -f "$zshrc" ]]; then
+        echo "Creating backup of existing .zshrc at $backup"
+        cp "$zshrc" "$backup"
+    else
+        echo "No existing .zshrc found, creating a new one"
+        touch "$zshrc"
+    fi
+
+    # Add keybindings section if it doesn't exist
+    if ! grep -q "# Key bindings" "$zshrc"; then
+        echo -e "\n# Key bindings" >> "$zshrc"
+        echo "bindkey -e" >> "$zshrc"  # Use emacs-style keybindings as a base
+
+        # Define key array for compatibility
+        echo "typeset -g -A key" >> "$zshrc"
+
+        # Fix Home/End keys
+        echo "bindkey '^[[H' beginning-of-line" >> "$zshrc"
+        echo "bindkey '^[[F' end-of-line" >> "$zshrc"
+        echo "bindkey '^[[1~' beginning-of-line" >> "$zshrc"  # Alternative Home key
+        echo "bindkey '^[[4~' end-of-line" >> "$zshrc"        # Alternative End key
+        echo "bindkey '^[OH' beginning-of-line" >> "$zshrc"   # Another alternative
+        echo "bindkey '^[OF' end-of-line" >> "$zshrc"         # Another alternative
+
+        # Fix Delete key
+        echo "bindkey '^[[3~' delete-char" >> "$zshrc"
+
+        # Page Up/Down
+        echo "bindkey '^[[5~' up-line-or-history" >> "$zshrc"
+        echo "bindkey '^[[6~' down-line-or-history" >> "$zshrc"
+
+        # Arrow keys for history search
+        echo "bindkey '^[[A' up-line-or-search" >> "$zshrc"   # Up arrow
+        echo "bindkey '^[[B' down-line-or-search" >> "$zshrc" # Down arrow
+        echo "bindkey '^[[C' forward-char" >> "$zshrc"        # Right arrow
+        echo "bindkey '^[[D' backward-char" >> "$zshrc"       # Left arrow
+
+        echo "Keybindings added to .zshrc"
+    else
+        echo "Keybindings section already exists, skipping"
+    fi
+
+    # Add useful aliases and functions if they don't exist
+    if ! grep -q "# Useful aliases and functions" "$zshrc"; then
+        echo -e "\n# Useful aliases and functions" >> "$zshrc"
+
+        # Add 'take' function to create and cd into a directory
+        echo "# Create a directory and cd into it" >> "$zshrc"
+        echo "function take() {" >> "$zshrc"
+        echo "  mkdir -p \$1" >> "$zshrc"
+        echo "  cd \$1" >> "$zshrc"
+        echo "}" >> "$zshrc"
+
+        # Enable auto-cd (just type directory name to cd into it)
+        echo -e "\n# Enable auto-cd" >> "$zshrc"
+        echo "setopt auto_cd" >> "$zshrc"
+
+        # Enhance history settings
+        echo -e "\n# History settings" >> "$zshrc"
+        echo "HISTSIZE=10000" >> "$zshrc"
+        echo "SAVEHIST=10000" >> "$zshrc"
+        echo "HISTFILE=~/.zsh_history" >> "$zshrc"
+        echo "setopt share_history" >> "$zshrc"
+        echo "setopt hist_ignore_dups" >> "$zshrc"
+
+        echo '# Arch Linux package management' >> "$zshrc"
+        echo 'alias pacupdate="sudo pacman -Syu"' >> "$zshrc"
+        echo 'alias pacinstall="sudo pacman -S"' >> "$zshrc"
+        echo 'alias pacremove="sudo pacman -Rs"' >> "$zshrc"
+        echo 'alias pacsearch="pacman -Ss"' >> "$zshrc"
+
+        echo "Useful aliases and functions added to .zshrc"
+    else
+        echo "Useful aliases and functions section already exists, skipping"
+    fi
+
+    echo "Setup complete! Please restart your terminal or run 'source ~/.zshrc' to apply changes."
+}
+
 
 # Main script execution
 log_message "Starting Arch Linux setup script..."
@@ -423,6 +490,9 @@ install_browsers
 install_office
 install_gaming
 cleanup
+change_to_zsh
+configure_zshrc
 generate_summary
+
 
 log_message "Arch Linux setup script completed successfully"
