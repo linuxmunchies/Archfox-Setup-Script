@@ -145,6 +145,102 @@ configure_system() {
   log_message "System configuration completed successfully"
 }
 
+# Setup game drive mount function
+setup_gamedrive_mount() {
+  log_message "Setting up game drive mount..."
+
+  # Set mount details
+  GAME_DRIVE_UUID="6c52f6b5-b3f3-49c6-a7cc-2793741afe35"
+  MOUNT_POINT="/mnt/gamedrive"
+  MOUNT_OPTIONS="rw,relatime,compress=zstd:3,nofail"
+  FSTAB_ENTRY="UUID=$GAME_DRIVE_UUID $MOUNT_POINT btrfs $MOUNT_OPTIONS 0 0"
+
+  # Check if drive exists using UUID
+  if ! blkid -U "$GAME_DRIVE_UUID" > /dev/null 2>&1; then
+    log_message "Game drive with UUID $GAME_DRIVE_UUID not detected, skipping mount setup"
+    return 0
+  fi
+
+  log_message "Game drive detected, proceeding with mount setup"
+
+  # Create mount point if it doesn't exist
+  if ! [ -d "$MOUNT_POINT" ]; then
+    log_message "Creating mount point at $MOUNT_POINT"
+    sudo mkdir -p "$MOUNT_POINT"
+  fi
+
+  # Mount the drive if not already mounted
+  if ! mount | grep -q "$MOUNT_POINT"; then
+    log_message "Mounting game drive to $MOUNT_POINT"
+    sudo mount -U "$GAME_DRIVE_UUID" "$MOUNT_POINT" -o "$MOUNT_OPTIONS"
+    if [ $? -ne 0 ]; then
+      log_message "ERROR: Failed to mount game drive"
+      return 1
+    fi
+  else
+    log_message "Game drive already mounted to $MOUNT_POINT"
+  fi
+
+  # Add to fstab if not already there
+  if ! grep -q "$GAME_DRIVE_UUID" /etc/fstab; then
+    log_message "Adding game drive to /etc/fstab for auto-mount on boot"
+    echo "$FSTAB_ENTRY" | sudo tee -a /etc/fstab > /dev/null
+  else
+    log_message "Game drive already in /etc/fstab"
+  fi
+  systemctl daemon-reload
+  log_message "Game drive mounted successfully and set up for auto-mount on boot"
+  return 0
+}
+# Setup game drive mount function
+setup_gamedrive_mount() {
+  log_message "Setting up game drive mount..."
+
+  # Set mount details
+  GAME_DRIVE_UUID="6c52f6b5-b3f3-49c6-a7cc-2793741afe35"
+  MOUNT_POINT="/mnt/gamedrive"
+  MOUNT_OPTIONS="rw,relatime,compress=zstd:3,nofail"
+  FSTAB_ENTRY="UUID=$GAME_DRIVE_UUID $MOUNT_POINT btrfs $MOUNT_OPTIONS 0 0"
+
+  # Check if drive exists using UUID
+  if ! blkid -U "$GAME_DRIVE_UUID" > /dev/null 2>&1; then
+    log_message "Game drive with UUID $GAME_DRIVE_UUID not detected, skipping mount setup"
+    return 0
+  fi
+
+  log_message "Game drive detected, proceeding with mount setup"
+
+  # Create mount point if it doesn't exist
+  if ! [ -d "$MOUNT_POINT" ]; then
+    log_message "Creating mount point at $MOUNT_POINT"
+    sudo mkdir -p "$MOUNT_POINT"
+  fi
+
+  # Mount the drive if not already mounted
+  if ! mount | grep -q "$MOUNT_POINT"; then
+    log_message "Mounting game drive to $MOUNT_POINT"
+    sudo mount -U "$GAME_DRIVE_UUID" "$MOUNT_POINT" -o "$MOUNT_OPTIONS"
+    if [ $? -ne 0 ]; then
+      log_message "ERROR: Failed to mount game drive"
+      return 1
+    fi
+  else
+    log_message "Game drive already mounted to $MOUNT_POINT"
+  fi
+
+  # Add to fstab if not already there
+  if ! grep -q "$GAME_DRIVE_UUID" /etc/fstab; then
+    log_message "Adding game drive to /etc/fstab for auto-mount on boot"
+    echo "$FSTAB_ENTRY" | sudo tee -a /etc/fstab > /dev/null
+  else
+    log_message "Game drive already in /etc/fstab"
+  fi
+
+  log_message "Game drive mounted successfully and set up for auto-mount on boot"
+  return 0
+}
+
+
 # Setup CIFS mount function
 setup_cifs_mount() {
   log_message "Setting up CIFS mount..."
@@ -155,8 +251,8 @@ setup_cifs_mount() {
   MOUNT_POINT="/mnt/media"
   MOUNT_POINT2="/mnt/archives"
   CREDENTIALS_FILE="/etc/cifs-credentials"
-  FSTAB_ENTRY="$SHARE $MOUNT_POINT cifs credentials=$CREDENTIALS_FILE,vers=3.0,uid=gitfox,gid=gitfox,nofail 0 0"
-  FSTAB_ENTRY2="$SHARE2 $MOUNT_POINT2 cifs credentials=$CREDENTIALS_FILE,vers=3.0,uid=gitfox,gid=gitfox,nofail 0 0"
+  FSTAB_ENTRY="$SHARE $MOUNT_POINT rw,noserverino,cifs credentials=$CREDENTIALS_FILE,vers=3.0,uid=gitfox,gid=gitfox,nofail 0 0"
+  FSTAB_ENTRY2="$SHARE2 $MOUNT_POINT2 cifs rw,noserverino,credentials=$CREDENTIALS_FILE,vers=3.0,uid=gitfox,gid=gitfox,nofail 0 0"
 
   # Install cifs-utils
   install_package "smbclient cifs-utils"
@@ -198,7 +294,7 @@ setup_multimedia() {
   log_message "Setting up multimedia support..."
 
   # Install multimedia codecs for Arch
-  install_package "ffmpeg yt-dlp vlc mpv mediainfo easyeffects flac lame libmpeg2 wavpack x264 x265 gstreamer gst-libav gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly"
+  install_package "ffmpeg yt-dlp vlc mpv strawberry mediainfo easyeffects flac lame libmpeg2 wavpack x264 x265 gstreamer gst-libav gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly"
 
   # Install Plex applications!
   flatpak install tv.plex.PlexDesktop com.plexamp.Plexamp
@@ -350,6 +446,11 @@ cleanup() {
   log_message "Cleanup completed successfully"
 }
 
+# Mkdirs for ProtonDrive Function
+mkdir_proton() {
+  mkdir -p ~/ProtonDrive/Archives/{Discord,Obsidian} ~/ProtonDrive/Career/MainDocs/ && chown gitfox:gitfox ~/ProtonDrive/*
+}
+
 # Generate summary function
 generate_summary() {
   log_message "Generating setup summary..."
@@ -482,16 +583,18 @@ snapshot_function
 system_upgrade
 configure_system
 install_kickstart_nvim
-setup_cifs_mount
 setup_multimedia
 setup_virtualization
 install_essentials
 install_browsers
 install_office
 install_gaming
-cleanup
+setup_gamedrive_mount
+setup_cifs_mount
+mkdir_proton
 change_to_zsh
 configure_zshrc
+cleanup
 generate_summary
 
 
