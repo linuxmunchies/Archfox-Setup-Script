@@ -294,10 +294,13 @@ setup_multimedia() {
   log_message "Setting up multimedia support..."
 
   # Install multimedia codecs for Arch
-  install_package "ffmpeg yt-dlp vlc mpv strawberry mediainfo easyeffects flac lame libmpeg2 wavpack x264 x265 gstreamer gst-libav gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly"
+  install_package "ffmpeg yt-dlp vlc mpv strawberry mediainfo flac lame libmpeg2 wavpack x264 x265 gstreamer gst-libav gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly"
 
-  # Install Plex applications!
-  flatpak install tv.plex.PlexDesktop com.plexamp.Plexamp
+  # Install Chinese, Japanese, and Koren Language Support
+  install_package "noto-fonts-cjk"
+
+  # Install Plex and Jellyfin applications!
+  flatpak install com.github.iwalton3.jellyfin-media-player tv.plex.PlexDesktop com.plexamp.Plexamp
 
   # Hardware acceleration
   install_package "intel-media-driver libva-intel-driver" # Intel
@@ -333,10 +336,10 @@ install_essentials() {
   log_message "Installing essential applications..."
 
   # Install packages
-  install_package "amdgpu_top bluez-utils duf fastfetch flatpak btop htop rsync inxi fzf ncdu tmux git wget curl kitty bat make unzip unrar vim wl-clipboard gcc go tldr zsh"
+  install_package "amdgpu_top intel-gpu-tools bluez-utils duf fastfetch flatpak btop htop rsync inxi fzf ncdu tmux git wget curl kitty bat make unzip unrar vim wl-clipboard gcc go tldr zsh"
 
   # Install Resources
-  flatpak install net.nokyan.Resources im.riot.Riot org.telegram.desktop com.rustdesk.RustDesk com.github.unrud.VideoDownloader com.github.tchx84.Flatseal -y
+  flatpak install net.nokyan.Resources im.riot.Riot org.telegram.desktop com.rustdesk.RustDesk com.github.unrud.VideoDownloader com.github.tchx84.Flatseal org.kde.kwalletmanager5 -y
   # Install rclone
   log_message "Installing rclone..."
   if ! (sudo -v && curl https://rclone.org/install.sh | sudo bash); then
@@ -424,8 +427,8 @@ install_gaming() {
   # Install Steam
   install_package "steam"
 
-  # Install mangohud
-  install_package "mangohud"
+  # Install mangohud and gamemode
+  install_package "lib32-mangohud mangohud gamemode lib32-gamemode"
 
   # Install gaming apps from Flathub
   flatpak install -y flathub net.lutris.Lutris com.heroicgameslauncher.hgl org.yuzu_emu.yuzu
