@@ -299,8 +299,8 @@ setup_multimedia() {
   # Install Chinese, Japanese, and Koren Language Support
   install_package "noto-fonts-cjk"
 
-  # Install Plex and Jellyfin applications!
-  flatpak install com.github.iwalton3.jellyfin-media-player tv.plex.PlexDesktop com.plexamp.Plexamp
+  # Install Multimedia flatpak applications!
+  flatpak install com.github.iwalton3.jellyfin-media-player tv.plex.PlexDesktop com.plexamp.Plexamp org.kde.gwenview com.obsproject.Studio org.nickvision.tubeconverter
 
   # Hardware acceleration
   install_package "intel-media-driver libva-intel-driver" # Intel
@@ -339,7 +339,7 @@ install_essentials() {
   install_package "amdgpu_top intel-gpu-tools bluez-utils duf fastfetch flatpak btop htop rsync inxi fzf ncdu tmux git wget curl kitty bat make unzip unrar vim wl-clipboard gcc go tldr zsh"
 
   # Install Resources
-  flatpak install net.nokyan.Resources im.riot.Riot org.telegram.desktop com.rustdesk.RustDesk com.github.unrud.VideoDownloader com.github.tchx84.Flatseal org.kde.kwalletmanager5 -y
+  flatpak install net.nokyan.Resources im.riot.Riot io.github.dimtpap.coppwr org.nickvision.cavalier org.telegram.desktop com.rustdesk.RustDesk com.github.unrud.VideoDownloader com.github.tchx84.Flatseal org.kde.kwalletmanager5 -y
   # Install rclone
   log_message "Installing rclone..."
   if ! (sudo -v && curl https://rclone.org/install.sh | sudo bash); then
