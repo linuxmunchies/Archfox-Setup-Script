@@ -105,6 +105,28 @@ snapshot_function() {
   echo "Snapshots created: root-$DATE, home-$DATE"
 }
 
+# Setup timezone function
+setup_timezone() {
+  if [ "$INSTALL_SYSTEMTOOLS" != "true" ]; then
+    log_message "Skipping timezone setup"
+    return 0
+  fi
+
+  log_message "Setting timezone to America/Chicago..."
+  if ! command -v timedatectl &> /dev/null; then
+    log_message "ERROR: timedatectl not found"
+    return 1
+  fi
+
+  timedatectl set-timezone America/Chicago
+  if [ $? -eq 0 ]; then
+    log_message "Timezone set to America/Chicago successfully"
+  else
+    log_message "ERROR: Failed to set timezone"
+    return 1
+  fi
+}
+
 # System upgrade function
 system_upgrade() {
   log_message "Performing system upgrade... This may take a while..."
@@ -580,11 +602,12 @@ log_message "Starting Arch Linux setup script..."
 
 # Execute functions in sequence
 root_check
+system_upgrade
+configure_system
+setup_timezone
 setup_aur_helper
 setup_flatpak
 snapshot_function
-system_upgrade
-configure_system
 install_kickstart_nvim
 setup_multimedia
 setup_virtualization
