@@ -615,7 +615,7 @@ install_essentials
 install_browsers
 install_office
 install_gaming
-setup_gamedrive_mount
+#setup_gamedrive_mount
 setup_cifs_mount
 mkdir_proton
 change_to_zsh
@@ -625,3 +625,4 @@ generate_summary
 
 
 log_message "Arch Linux setup script completed successfully"
+log_message "setup_gamedrive_mount disabled by default for compatibility. Use it if you know what you're doing."
