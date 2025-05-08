@@ -322,7 +322,7 @@ setup_multimedia() {
   install_package "noto-fonts-cjk"
 
   # Install Multimedia flatpak applications!
-  flatpak install com.spotify.Client com.mastermindzh.tidal-hifi com.github.iwalton3.jellyfin-media-player tv.plex.PlexDesktop com.plexamp.Plexamp org.kde.gwenview com.obsproject.Studio org.nickvision.tubeconverter
+  flatpak install com.spotify.Client com.mastermindzh.tidal-hifi com.github.iwalton3.jellyfin-media-player org.kde.gwenview com.obsproject.Studio org.nickvision.tubeconverter
 
   # Hardware acceleration
   install_package "intel-media-driver libva-intel-driver" # Intel
