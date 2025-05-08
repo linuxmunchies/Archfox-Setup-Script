@@ -76,6 +76,28 @@ EOF
   fi
 }
 
+install_mullvad_vpn() {
+  # Detect available AUR helper
+  if command -v yay >/dev/null 2>&1; then
+    AUR_HELPER="yay"
+  elif command -v paru >/dev/null 2>&1; then
+    AUR_HELPER="paru"
+  else
+    echo "Error: Neither yay nor paru is installed. Install one first."
+    return 1
+  fi
+
+  echo "Using $AUR_HELPER to install Mullvad VPN..."
+  $AUR_HELPER -S --noconfirm mullvad-vpn-bin
+
+  if [[ $? -eq 0 ]]; then
+    echo "Mullvad VPN installed successfully."
+  else
+    echo "Installation failed."
+    return 1
+  fi
+}
+
 # Function to take a Snapshot
 snapshot_function() {
   # Check if filesystem is btrfs
@@ -620,6 +642,7 @@ setup_cifs_mount
 mkdir_proton
 change_to_zsh
 configure_zshrc
+install_mullvad_vpn
 cleanup
 generate_summary
 
